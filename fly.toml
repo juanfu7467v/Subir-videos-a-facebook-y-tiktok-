@@ -1,0 +1,62 @@
+# fly.toml – Configuración de despliegue para Fly.io
+# Ejecutar primero: fly launch --no-deploy (para generar el app name)
+# Luego:           fly deploy
+
+app = "video-distributor"        # ← Cambia esto por tu nombre de app en Fly.io
+primary_region = "mia"           # Miami (más cercano a Latinoamérica)
+
+# ── Build ──────────────────────────────────────────────────────────────────────
+[build]
+  dockerfile = "Dockerfile"
+
+# ── HTTP Service ───────────────────────────────────────────────────────────────
+[[services]]
+  protocol    = "tcp"
+  internal_port = 8080
+
+  [[services.ports]]
+    port     = 80
+    handlers = ["http"]
+
+  [[services.ports]]
+    port     = 443
+    handlers = ["tls", "http"]
+
+  [services.concurrency]
+    type       = "requests"
+    hard_limit = 25
+    soft_limit = 20
+
+  [[services.http_checks]]
+    interval      = 30000   # ms
+    timeout       = 5000
+    grace_period  = "15s"
+    method        = "GET"
+    path          = "/health"
+    protocol      = "http"
+
+# ── Máquina virtual ────────────────────────────────────────────────────────────
+# Los videos pueden ser grandes; se recomienda al menos shared-cpu-2x con 1 GB RAM
+[vm]
+  cpu_kind = "shared"
+  cpus     = 2
+  memory   = "1gb"
+
+# ── Volumen efímero para archivos temporales ────────────────────────────────────
+# No se usa un volumen persistente porque los archivos se eliminan tras la subida.
+# /tmp ya tiene ~512 MB en Fly.io; si necesitas más, descomenta la sección siguiente:
+#
+# [[mounts]]
+#   source      = "video_tmp"
+#   destination = "/tmp/video_distributor"
+
+# ── Variables de entorno (NO SECRETAS) ────────────────────────────────────────
+[env]
+  PORT    = "8080"
+  TMP_DIR = "/tmp/video_distributor"
+
+# ── Secretos (configurar con: fly secrets set CLAVE=valor) ────────────────────
+# fly secrets set FB_ACCESS_TOKEN="..."
+# fly secrets set FB_PAGE_ID="..."
+# fly secrets set TIKTOK_ACCESS_TOKEN="..."
+# fly secrets set TIKTOK_APP_ID="..."
